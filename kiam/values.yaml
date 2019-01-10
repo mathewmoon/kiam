@@ -1,0 +1,14 @@
+namespace: kube-system
+serviceAccount: kiam
+
+server:
+  tlsSecret: kiam-server-tls
+  daemonsetName: kiam-server
+  nodeRoleSelector: master
+  serviceName: kiam-server
+
+agent:
+  tlsSecret: kiam-agent-tls
+  daemonsetName: kiam-agent
+  nodeRoleSelector: worker
+  hostInterface: '!eth0'

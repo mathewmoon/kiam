@@ -1,0 +1,19 @@
+{
+  "CN": "Kiam CA",
+  "key": {
+      "algo": "rsa",
+      "size": 2048
+  },
+  "names": [
+    {
+        "C":  "USA",
+        "L":  "Little Rock",
+        "O":  "Angel Eye Camera Systems",
+        "OU": "WWW",
+        "ST": "AR"
+    }
+  ],
+  "ca": {
+    "expiry": "262800h"
+  }
+}

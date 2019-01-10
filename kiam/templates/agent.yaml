@@ -1,0 +1,78 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  namespace: {{ .Values.namespace }}
+  name: {{ .Values.agent.daemonsetName }}
+spec:
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9620"
+      labels:
+        app: kiam
+        role: agent
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        kubernetes.io/role: {{ .Values.agent.nodeRoleSelector }}
+      volumes:
+        - name: ssl-certs
+          hostPath:
+            # for AWS linux or RHEL distros
+            path: /etc/pki/ca-trust/extracted/pem/
+            #path: /usr/share/ca-certificates
+        - name: tls
+          secret:
+            secretName: {{ .Values.agent.tlsSecret }}
+        - name: xtables
+          hostPath:
+            path: /run/xtables.lock
+            type: FileOrCreate
+      containers:
+        - name: kiam
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN"]
+          image: quay.io/uswitch/kiam:v3.0 # USE A TAGGED RELEASE IN PRODUCTION
+          imagePullPolicy: Always
+          env:
+          - name: GRPC_GO_LOG_SEVERITY_LEVEL
+            value: "info"
+          - name: GRPC_GO_LOG_VERBOSITY_LEVEL
+            value: "8"
+          command:
+            - /kiam
+          args:
+            - agent
+            - --iptables
+            - --host-interface={{ .Values.agent.hostInterface }}
+            - --json-log
+            - --level=info
+            - --port=8181
+            - --cert=/etc/kiam/tls/agent.pem
+            - --key=/etc/kiam/tls/agent-key.pem
+            - --ca=/etc/kiam/tls/ca.pem
+            - --server-address={{ .Values.server.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:443
+            - --prometheus-listen-addr=0.0.0.0:9620
+            - --prometheus-sync-interval=5s
+            - --gateway-timeout-creation=5s
+          env:
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          volumeMounts:
+            - mountPath: /etc/ssl/certs
+              name: ssl-certs
+            - mountPath: /etc/kiam/tls
+              name: tls
+            - mountPath: /var/run/xtables.lock
+              name: xtables
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: 8181
+            initialDelaySeconds: 3
+            periodSeconds: 3

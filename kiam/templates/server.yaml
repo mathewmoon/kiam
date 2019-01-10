@@ -1,0 +1,101 @@
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  namespace: {{ .Values.namespace }}
+  name: {{ .Values.server.daemonsetName }}
+spec:
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9620"
+      labels:
+        app: kiam
+        role: server
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount }}
+      nodeSelector:
+        kubernetes.io/role: {{ .Values.server.nodeRoleSelector }}
+      volumes:
+        - name: ssl-certs
+          hostPath:
+            # for AWS linux or RHEL distros
+            path: /etc/pki/ca-trust/extracted/pem/
+            #path: /usr/share/ca-certificates
+        - name: tls
+          secret:
+            secretName: {{ .Values.server.tlsSecret }}
+      containers:
+        - name: kiam
+          image: quay.io/uswitch/kiam:v3.0 # USE A TAGGED RELEASE IN PRODUCTION
+          imagePullPolicy: Always
+          env:
+          - name: GRPC_GO_LOG_SEVERITY_LEVEL
+            value: "info"
+          - name: GRPC_GO_LOG_VERBOSITY_LEVEL
+            value: "8"
+          command:
+            - /kiam
+          args:
+            - server
+            - --json-log
+            - --level=debug
+            - --bind=0.0.0.0:443
+            - --cert=/etc/kiam/tls/server.pem
+            - --key=/etc/kiam/tls/server-key.pem
+            - --ca=/etc/kiam/tls/ca.pem
+            - --role-base-arn-autodetect
+            - --assume-role-arn=arn:aws:iam::617143659582:role/kiam-server
+            - --sync=1m
+            - --prometheus-listen-addr=0.0.0.0:9620
+            - --prometheus-sync-interval=5s
+          volumeMounts:
+            - mountPath: /etc/ssl/certs
+              name: ssl-certs
+            - mountPath: /etc/kiam/tls
+              name: tls
+          livenessProbe:
+            exec:
+              command:
+              - /kiam
+              - health
+              - --cert=/etc/kiam/tls/server.pem
+              - --key=/etc/kiam/tls/server-key.pem
+              - --ca=/etc/kiam/tls/ca.pem
+              - --server-address=127.0.0.1:443
+              - --gateway-timeout-creation=1s
+              - --timeout=5s
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+              - /kiam
+              - health
+              - --cert=/etc/kiam/tls/server.pem
+              - --key=/etc/kiam/tls/server-key.pem
+              - --ca=/etc/kiam/tls/ca.pem
+              - --server-address=127.0.0.1:443
+              - --gateway-timeout-creation=1s
+              - --timeout=5s
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.server.serviceName }}
+  namespace: {{ .Values.namespace }}
+spec:
+  clusterIP: None
+  selector:
+    app: kiam
+    role: server
+  ports:
+  - name: grpclb
+    port: 443
+    targetPort: 443
+    protocol: TCP
