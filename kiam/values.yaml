@@ -1,14 +1,18 @@
 namespace: kube-system
 serviceAccount: kiam
+image: quay.io/uswitch/kiam:v3.0
 
 server:
+  assumeRoleArn: arn:aws:iam::617143659582:role/kiam-server
   serverTls: kiam-server-tls
   daemonsetName: kiam-server
   nodeRoleSelector: master
   serviceName: kiam-server
+  logLevel: info
 
 agent:
   agentTls: kiam-agent-tls
   daemonsetName: kiam-agent
   nodeRoleSelector: worker
   hostInterface: '!eth0'
+  logLevel: info

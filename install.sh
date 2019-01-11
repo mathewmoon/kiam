@@ -33,6 +33,12 @@ while [[ ! -z $1 ]]; do
   shift
 done
 
+NAMESPACE=$(helm inspect $DIR |grep namespace|cut -d: -f2|xargs)
+SERVICENAME=$(helm inspect $DIR |grep serviceName|cut -d: -f2|xargs)
+AGENT_TLS=$(helm inspect $DIR |grep agentTls|cut -d: -f2|xargs)
+SERVER_TLS=$(helm inspect $DIR |grep serverTls|cut -d: -f2|xargs)
+FQDN=${SERVICENAME}.${NAMESPACE}.svc.cluster.local
+
 if [ -z $DIR ] || [ -z $RELEASE ]; then
   echo "-d and -r options are required"
   usage
@@ -51,11 +57,11 @@ if [ ! -f ${DIR}/values.yaml ]; then
   exit 2
 fi
 
-NAMESPACE="-n $(helm inspect $DIR |grep namespace|cut -d: -f2|xargs)"
-SERVICENAME=$(helm inspect $DIR |grep serviceName|cut -d: -f2|xargs)
-AGENT_TLS=$(helm inspect $DIR |grep agentTls|cut -d: -f2|xargs)
-SERVER_TLS=$(helm inspect $DIR |grep serverTls|cut -d: -f2|xargs)
-FQDN=${SERVICENAME}.${NAMESPACE}.svc.cluster.local
+if [ -z ${NAMESPACE} ]; then
+  echo "Namespace not declared in values.yaml"
+  usage
+  exit 2
+fi
 
 JSON=$(cat<<EOF
 {
@@ -94,20 +100,21 @@ if [ ! -z $CERTS ]; then
   cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=default server.json | cfssljson -bare server
   cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=default agent.json | cfssljson -bare agent
 
-  kubectl --kubeconfig ~/.kube/config delete secret $AGENT_TLS $NAMESPACE >/dev/null 2>&1
-  kubectl --kubeconfig ~/.kube/config delete secret $SERVER_TLS $NAMESPACE >/dev/null 2>&1
+  kubectl --kubeconfig ~/.kube/config delete secret $AGENT_TLS -n $NAMESPACE >/dev/null 2>&1
+  kubectl --kubeconfig ~/.kube/config delete secret $SERVER_TLS -n $NAMESPACE >/dev/null 2>&1
 
-  kubectl --kubeconfig ~/.kube/config create secret generic $NAMESPACE $SERVER_TLS  \
+  kubectl --kubeconfig ~/.kube/config create secret generic -n $NAMESPACE $SERVER_TLS  \
     --from-file=ca.pem \
     --from-file=server.pem \
     --from-file=server-key.pem
 
-  kubectl --kubeconfig ~/.kube/config create secret generic $NAMESPACE $AGENT_TLS  \
+  kubectl --kubeconfig ~/.kube/config create secret generic -n $NAMESPACE $AGENT_TLS  \
     --from-file=ca.pem \
     --from-file=agent.pem \
     --from-file=agent-key.pem
 
-    rm -f *.pem
+  rm -f server.json
+  rm -f *.pem
 fi
 
 helm del --purge ${RELEASE}
