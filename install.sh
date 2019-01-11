@@ -115,6 +115,7 @@ if [ ! -z $CERTS ]; then
 
   rm -f server.json
   rm -f *.pem
+  rm -f *.csr
 fi
 
 helm del --purge ${RELEASE}
