@@ -25,7 +25,7 @@ spec:
             #path: /usr/share/ca-certificates
         - name: tls
           secret:
-            secretName: {{ .Values.server.tlsSecret }}
+            secretName: {{ .Values.server.serverTls }}
       containers:
         - name: kiam
           image: quay.io/uswitch/kiam:v3.0 # USE A TAGGED RELEASE IN PRODUCTION

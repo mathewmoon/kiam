@@ -25,7 +25,7 @@ spec:
             #path: /usr/share/ca-certificates
         - name: tls
           secret:
-            secretName: {{ .Values.agent.tlsSecret }}
+            secretName: {{ .Values.agent.agentTls }}
         - name: xtables
           hostPath:
             path: /run/xtables.lock
