@@ -2,13 +2,16 @@
 
 function usage(){
   cat<<EOF
-Install Kiam, generating certs if requested.
-  Usage:  $0 [OPTIONS]
+
+  Install Kiam, generating certs if requested.
+    Usage:  $0 [OPTIONS]
 
   Options:
-    -d   Directory to install chart from
-    -c   Generate certs and save them as secrets
-    -r   Release name for helm to use
+    -d <dir>   Directory to install chart from
+    -c         Generate certs and save them as secrets
+    -r <name>  Release name for helm to use
+    -u <name>  Uninstall the provided release and exit
+
 EOF
 }
 
@@ -25,6 +28,10 @@ while [[ ! -z $1 ]]; do
       shift
       RELEASE="$1"
       ;;
+    -u|--uninstall)
+      shift
+      UNINSTALL="$1"
+      ;;
     *)
       usage
       exit 1
@@ -33,32 +40,37 @@ while [[ ! -z $1 ]]; do
   shift
 done
 
-NAMESPACE=$(helm inspect $DIR |grep namespace|cut -d: -f2|xargs)
-SERVICENAME=$(helm inspect $DIR |grep serviceName|cut -d: -f2|xargs)
-AGENT_TLS=$(helm inspect $DIR |grep agentTls|cut -d: -f2|xargs)
-SERVER_TLS=$(helm inspect $DIR |grep serverTls|cut -d: -f2|xargs)
+NAMESPACE=$(helm inspect $DIR 2>/dev/null|grep namespace|cut -d: -f2|xargs)
+SERVICENAME=$(helm inspect $DIR 2>/dev/null|grep serviceName|cut -d: -f2|xargs)
+AGENT_TLS=$(helm inspect $DIR 2>/dev/null|grep agentTls|cut -d: -f2|xargs)
+SERVER_TLS=$(helm inspect $DIR 2>/dev/null|grep serverTls|cut -d: -f2|xargs)
 FQDN=${SERVICENAME}.${NAMESPACE}.svc.cluster.local
 
+if [ ! -z $UNINSTALL ]; then
+  helm del --purge $UNINSTALL
+  #exit
+fi
+
 if [ -z $DIR ] || [ -z $RELEASE ]; then
-  echo "-d and -r options are required"
+  echo "  -d and -r options are required unless using -u"
   usage
   exit 2
 fi
 
 if ! helm lint $DIR >/dev/null 2>&1; then
-  echo "$DIR is not a path to a valid helm chart"
+  echo "  $DIR is not a path to a valid helm chart"
   usage
   exit 2
 fi
 
 if [ ! -f ${DIR}/values.yaml ]; then
-  echo "No values.yaml file included in helm chart"
+  echo "  No values.yaml file included in helm chart"
   usage
   exit 2
 fi
 
 if [ -z ${NAMESPACE} ]; then
-  echo "Namespace not declared in values.yaml"
+  echo "  Namespace not declared in values.yaml"
   usage
   exit 2
 fi
@@ -118,5 +130,4 @@ if [ ! -z $CERTS ]; then
   rm -f *.csr
 fi
 
-helm del --purge ${RELEASE}
 helm install -f ${DIR}/values.yaml ./${DIR}/ --name ${RELEASE}

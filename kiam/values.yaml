@@ -6,13 +6,13 @@ server:
   assumeRoleArn: arn:aws:iam::617143659582:role/kiam-server
   serverTls: kiam-server-tls
   daemonsetName: kiam-server
-  nodeRoleSelector: master
+  nodeLabel: kiam #Only run on the nodes that are labeled for the server process. The iptables rules created for kiam will break networking otherwise
+  toleration: kiam-server-node #Nodes that run the server process must be tainted so that agents and other applications cannot run on them
   serviceName: kiam-server
-  logLevel: info
+  logLevel: debug
 
 agent:
   agentTls: kiam-agent-tls
   daemonsetName: kiam-agent
-  nodeRoleSelector: worker
-  hostInterface: '!eth0'
-  logLevel: info
+  hostInterface: '!eth0' #make sure to quote if value contains special chars
+  logLevel: debug

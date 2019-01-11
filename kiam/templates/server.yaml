@@ -15,8 +15,16 @@ spec:
         role: server
     spec:
       serviceAccountName: {{ .Values.serviceAccount }}
+      {{- if .Values.server.nodeLabel}}
       nodeSelector:
-        kubernetes.io/role: {{ .Values.server.nodeRoleSelector }}
+        {{ .Values.server.nodeLabel }}: "true"
+      {{- end}}
+      {{- if .Values.server.toleration}}
+      tolerations:
+        - key: {{ .Values.server.toleration }}
+          operator: "Exists"
+          effect: "NoSchedule"
+      {{- end}}
       volumes:
         - name: ssl-certs
           hostPath:
@@ -32,7 +40,7 @@ spec:
           imagePullPolicy: Always
           env:
           - name: GRPC_GO_LOG_SEVERITY_LEVEL
-            value: "{ .Values.server.logLevel }}"
+            value: {{ .Values.server.logLevel | quote }}
           - name: GRPC_GO_LOG_VERBOSITY_LEVEL
             value: "8"
           command:

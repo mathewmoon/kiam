@@ -15,8 +15,16 @@ spec:
     spec:
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
+      {{- if .Values.agent.nodeLabel}}
       nodeSelector:
-        kubernetes.io/role: {{ .Values.agent.nodeRoleSelector }}
+        {{ .Values.agent.nodeLabel }}: "true"
+      {{- end}}
+      {{- if .Values.agent.toleration}}
+      tolerations:
+        - key: {{ .Values.agent.toleration }}
+          operator: "Exists"
+          effect: "NoSchedule"
+      {{- end}}
       volumes:
         - name: ssl-certs
           hostPath:
