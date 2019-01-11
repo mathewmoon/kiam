@@ -96,7 +96,7 @@ JSON=$(cat<<EOF
     {
         "C":  "USA",
         "L":  "Little Rock",
-        "O":  "Angel Eye Camera Systems",
+        "O":  "Kiam",
         "OU": "WWW",
         "ST": "AR"
     }
